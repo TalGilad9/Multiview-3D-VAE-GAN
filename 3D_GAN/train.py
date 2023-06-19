@@ -29,18 +29,18 @@ def train(args):
     if args.use_tensorboard:
         import tensorflow as tf
 
-        summary_writer = tf.summary.FileWriter(args.output_dir + args.log_dir + log_param)
+        summary_writer = tf.summary.create_file_writer(args.output_dir + args.log_dir + log_param)
 
         def inject_summary(summary_writer, tag, value, step):
-                summary = tf.Summary(value=[tf.Summary.Value(tag=tag, simple_value=value)])
-                summary_writer.add_summary(summary, global_step=step)
+                with summary_writer.as_default(), tf.summary.record_if(True):
+                  tf.summary.scalar(tag,value,step=step)
 
         inject_summary = inject_summary
 
 
     # datset define
     dsets_path = args.input_dir + args.data_dir + "train/"
-    print(dsets_path)
+    #print(dsets_path)
     dsets = ShapeNetDataset(dsets_path, args)
     dset_loaders = torch.utils.data.DataLoader(dsets, batch_size=args.batch_size, shuffle=True, num_workers=1)
 
@@ -66,50 +66,52 @@ def train(args):
 
     for epoch in range(args.n_epochs):
         for i, X in enumerate(dset_loaders):
-
             X = var_or_cuda(X)
 
-            if X.size()[0] != int(args.batch_size):
-                #print("batch_size != {} drop last incompatible batch".format(int(args.batch_size)))
-                continue
-
+            if (int(X.size()[0]) != int(args.batch_size)):
+              #print("batch_size != {} drop last incompatible batch".format(int(args.batch_size)))
+              continue
+              
             Z = generateZ(args)
-            real_labels = var_or_cuda(torch.ones(args.batch_size))
-            fake_labels = var_or_cuda(torch.zeros(args.batch_size))
+            
+            
+            real_labels = var_or_cuda(torch.ones(D(X).size()))
+            fake_labels = var_or_cuda(torch.zeros(D(G(Z)).size()))
 
             if args.soft_label:
-                real_labels = var_or_cuda(torch.Tensor(args.batch_size).uniform_(0.7, 1.2))
-                fake_labels = var_or_cuda(torch.Tensor(args.batch_size).uniform_(0, 0.3))
+              real_labels = var_or_cuda(torch.Tensor(D(X).size()).uniform_(0.7, 1.2))
+              fake_labels = var_or_cuda(torch.Tensor(D(G(Z)).size()).uniform_(0, 0.3))
 
             # ============= Train the discriminator =============#
+
             d_real = D(X)
             d_real_loss = criterion(d_real, real_labels)
-
-
+            
+            
             fake = G(Z)
             d_fake = D(fake)
             d_fake_loss = criterion(d_fake, fake_labels)
-
+            
             d_loss = d_real_loss + d_fake_loss
-
-
+            
+            
             d_real_acu = torch.ge(d_real.squeeze(), 0.5).float()
             d_fake_acu = torch.le(d_fake.squeeze(), 0.5).float()
             d_total_acu = torch.mean(torch.cat((d_real_acu, d_fake_acu),0))
 
             if d_total_acu <= args.d_thresh:
-                D.zero_grad()
-                d_loss.backward()
-                D_solver.step()
+              D.zero_grad()
+              d_loss.backward()
+              D_solver.step()
 
             # =============== Train the generator ===============#
 
             Z = generateZ(args)
-
+            
             fake = G(Z)
             d_fake = D(fake)
             g_loss = criterion(d_fake, real_labels)
-
+            
             D.zero_grad()
             G.zero_grad()
             g_loss.backward()
@@ -136,7 +138,8 @@ def train(args):
             summary_writer.flush()
 
         # =============== each epoch save model or save image ===============#
-        print('Iter-{}; , D_loss : {:.4}, G_loss : {:.4}, D_acu : {:.4}, D_lr : {:.4}'.format(iteration, d_loss.data[0], g_loss.data[0], d_total_acu.data[0], D_solver.state_dict()['param_groups'][0]["lr"]))
+        
+        print('Iter-{}; , D_loss : {:.4}, G_loss : {:.4}, D_acu : {:.4}, D_lr : {:.4}'.format(iteration, d_loss.item(), g_loss.item(), d_total_acu.item(), D_solver.state_dict()['param_groups'][0]["lr"]))
 
         if (epoch + 1) % args.image_save_step == 0:
 
