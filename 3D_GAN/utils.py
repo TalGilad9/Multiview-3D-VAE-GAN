@@ -107,6 +107,8 @@ class ShapeNetDataset(data.Dataset):
         self.args = args
 
     def __getitem__(self, index):
+        #print("images=")
+        #print(images.size())
         #with open(self.root + self.listdir[index], "rb") as f:
             #volume = np.asarray(getVoxelFromMat(f, self.args.cube_len), dtype=np.float32)
             #plotFromVoxels(volume)
@@ -161,6 +163,7 @@ class ShapeNetMultiviewDataset(data.Dataset):
             root: image directory.
             transform: Tensor transformer.
         """
+        print("inittttT")
         self.root = root
         self.listdir = os.listdir(self.root)
         self.args = args
@@ -168,7 +171,6 @@ class ShapeNetMultiviewDataset(data.Dataset):
         self.p = transforms.Compose([transforms.Scale((self.img_size, self.img_size))])
 
     def __getitem__(self, index):
-
         model_3d_file = [name for name in self.listdir if name.endswith('.' + "binvox")][index]
 
         model_2d_files = [name for name in self.listdir if name.startswith(model_3d_file[:-7]) and name.endswith(".png")][:3]
@@ -179,7 +181,8 @@ class ShapeNetMultiviewDataset(data.Dataset):
         #with open(self.root + model_2d_file, "rb") as g:
         #image = np.array(imread(self.root + model_2d_file))
         images = [torch.FloatTensor(np.asarray(self.p(Image.open(self.root +x )))) for x in model_2d_files]
-        return (images, torch.FloatTensor(volume) )
+
+        return (images, torch.FloatTensor(volume))
 
     def __len__(self):
         return len( [name for name in self.listdir if name.endswith('.' + "binvox")])
@@ -190,15 +193,22 @@ def var_or_cuda(x):
         x = x.cuda()
     return Variable(x)
 
-def generateZ(args):
-
-    if args.z_dis == "norm":
-        Z = var_or_cuda(torch.Tensor(args.batch_size, args.z_size).normal_(0, 0.33))
-    elif args.z_dis == "uni":
-        Z = var_or_cuda(torch.randn(args.batch_size, args.z_size))
+def generateZ(args, batch_size=-1):
+    if (batch_size == -1):
+      if args.z_dis == "norm":
+          Z = var_or_cuda(torch.Tensor(args.batch_size, args.z_size).normal_(0, 0.33))
+      elif args.z_dis == "uni":
+          Z = var_or_cuda(torch.randn(args.batch_size, args.z_size))
+      else:
+          print("z_dist is not normal or uniform")
     else:
-        print("z_dist is not normal or uniform")
-
+      if args.z_dis == "norm":
+          Z = var_or_cuda(torch.Tensor(batch_size, args.z_size).normal_(0, 0.33))
+      elif args.z_dis == "uni":
+          Z = var_or_cuda(torch.randn(batch_size, args.z_size))
+      else:
+          print("z_dist is not normal or uniform")
+    
     return Z
 
 ########################## Pickle helper ###############################

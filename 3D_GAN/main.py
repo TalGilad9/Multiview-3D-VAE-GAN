@@ -41,7 +41,7 @@ def str2bool(v):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # Model Parmeters
-    parser.add_argument('--n_epochs', type=float, default=1000,
+    parser.add_argument('--n_epochs', type=int, default=1000,
                         help='max epochs')
     parser.add_argument('--batch_size', type=int, default=32,
                         help='each batch size')
@@ -55,7 +55,7 @@ if __name__ == '__main__':
                         help='beta for adam')
     parser.add_argument('--d_thresh', type=float, default=0.8,
                         help='for balance dsicriminator and generator')
-    parser.add_argument('--z_size', type=float, default=200,
+    parser.add_argument('--z_size', type=int, default=200,
                         help='latent space size')
     parser.add_argument('--z_dis', type=str, default="norm", choices=["norm", "uni"],
                         help='uniform: uni, normal: norm')
